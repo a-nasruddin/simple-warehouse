@@ -16,3 +16,7 @@ simple-warehouse/
 ```
 docker compose up --build -d
 ```
+- Access it on browser
+```
+http://localhost:4000
+```
