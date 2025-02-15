@@ -86,14 +86,80 @@ func getProducts(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(products)
 }
 
+func addProduct(w http.ResponseWriter, r *http.Request) {
+    var newProduct Product
+    err := json.NewDecoder(r.Body).Decode(&newProduct)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    // Insert data ke database
+    query := `INSERT INTO products (name, stock) VALUES ($1, $2) RETURNING id`
+    err = db.QueryRow(query, newProduct.Name, newProduct.Stock).Scan(&newProduct.ID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(newProduct)
+}
+
+func updateProduct(w http.ResponseWriter, r *http.Request) {
+    var updatedProduct Product
+    err := json.NewDecoder(r.Body).Decode(&updatedProduct)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    // Update data di database
+    query := `UPDATE products SET name = $1, stock = $2 WHERE id = $3`
+    _, err = db.Exec(query, updatedProduct.Name, updatedProduct.Stock, updatedProduct.ID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(updatedProduct)
+}
+
+func deleteProduct(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    id := vars["id"]
+
+    // Hapus data dari database
+    query := `DELETE FROM products WHERE id = $1`
+    _, err := db.Exec(query, id)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent) // Response 204 (No Content)
+}
+
 func main() {
     initDB()
     r := mux.NewRouter()
+
+    // Endpoint untuk mendapatkan data produk
     r.HandleFunc("/products", getProducts).Methods("GET")
+
+    // Endpoint untuk menambah data produk
+    r.HandleFunc("/products", addProduct).Methods("POST")
+
+    // Endpoint untuk mengupdate data produk
+    r.HandleFunc("/products/{id}", updateProduct).Methods("PUT")
+
+    // Endpoint untuk menghapus data produk
+    r.HandleFunc("/products/{id}", deleteProduct).Methods("DELETE")
 
     // Tambahkan CORS middleware
     c := cors.New(cors.Options{
-        AllowedOrigins: []string{"*"}, // Izinkan request dari frontend
+        AllowedOrigins: []string{"*"},
         AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
     })
 
